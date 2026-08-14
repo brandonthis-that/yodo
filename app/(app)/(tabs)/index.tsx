@@ -1,5 +1,11 @@
+import { useMemo } from 'react';
+import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, Text, View } from 'react-native';
+import { AccountButton } from '@/src/components/AccountButton';
+import { CoinAmount } from '@/src/components/CoinIcon';
 import { EmptyState } from '@/src/components/EmptyState';
+import { GroupDeck, type GroupDeckItem } from '@/src/components/GroupDeck';
 import { GroupedList } from '@/src/components/GroupedList';
 import { PageHeader } from '@/src/components/PageHeader';
 import { Screen } from '@/src/components/Screen';
@@ -9,6 +15,7 @@ import { useYodoContext } from '@/src/context/YodoContext';
 import { formatTime, weekdayLabel, weekdayIndex } from '@/src/lib/dates';
 import { tasksDueOn } from '@/src/lib/points';
 import { showError } from '@/src/lib/confirm';
+import { normalizeGroupColor } from '@/src/theme';
 
 export default function TodayScreen() {
   const {
@@ -34,18 +41,62 @@ export default function TodayScreen() {
   const dueCount = todayTasks.length;
   const doneCount = todayTasks.filter((task) => doneToday.has(task.id)).length;
 
+  const deckItems: GroupDeckItem[] = useMemo(
+    () =>
+      todayGroups.map((group, index) => {
+        const groupTasks = tasksDueOn(tasks, dateStr, group.id);
+        const groupDone = groupTasks.filter((task) => doneToday.has(task.id)).length;
+        const bonus = bonusesToday.get(group.id);
+        return {
+          id: group.id,
+          name: group.name,
+          dueTime: formatTime(group.due_time),
+          done: groupDone,
+          total: groupTasks.length,
+          bonusEarned: Boolean(bonus),
+          bonusLabel: bonus
+            ? `On-time bonus +${bonus.points}`
+            : `+${group.bonus_points} if done by ${formatTime(group.due_time)}`,
+          color: normalizeGroupColor(group.color, index),
+        };
+      }),
+    [bonusesToday, dateStr, doneToday, tasks, todayGroups],
+  );
+
+  const addTask = () => {
+    router.push('/task/new');
+  };
+
   return (
-    <Screen loading={loading}>
+    <Screen
+      loading={loading}
+      overlay={
+        <Pressable
+          onPress={addTask}
+          accessibilityRole="button"
+          accessibilityLabel="Add a task"
+          className="absolute bottom-5 right-6 h-14 w-14 items-center justify-center rounded-full bg-one-blue active:opacity-80"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.22,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+        >
+          <SymbolView
+            name={{ ios: 'plus', android: 'add', web: 'add' }}
+            tintColor="#fff"
+            size={28}
+            fallback={<Text className="text-[28px] leading-none text-white">+</Text>}
+          />
+        </Pressable>
+      }
+    >
       <PageHeader
         subtitle={`${weekdayLabel(weekdayIndex())} · ${dateStr}`}
         title="Today"
-        trailing={
-          <View className="mb-1 rounded-full bg-one-blue/10 px-3 py-1">
-            <Text className="text-[17px] font-medium tabular-nums text-one-blue-deep dark:text-one-blue-bright">
-              {todayPoints}
-            </Text>
-          </View>
-        }
+        trailing={<AccountButton />}
       />
 
       {error ? <Text className="mb-4 text-[14px] text-one-danger">{error}</Text> : null}
@@ -66,31 +117,31 @@ export default function TodayScreen() {
         </Pressable>
       ) : null}
 
-      {!empty ? (
+      {todayGroups.length > 0 ? (
+        <View className="mb-6">
+          <GroupDeck items={deckItems} />
+        </View>
+      ) : null}
+
+      {todayGroups.length === 0 && !empty ? (
         <View className="mb-6 flex-row gap-2.5">
           <GlanceCard label="Due" value={dueCount} />
           <GlanceCard label="Done" value={doneCount} />
-          <GlanceCard label="Points" value={todayPoints} />
+          <GlanceCard label="Coins" value={todayPoints} coins />
         </View>
       ) : null}
 
       {empty ? (
-        <EmptyState title="Nothing due today" body="Add a morning routine under Routines to get started." />
+        <EmptyState title="Nothing due today" body="Tap + to add a task, or start a routine under Routines." />
       ) : null}
 
       {todayGroups.map((group) => {
         const groupTasks = tasksDueOn(tasks, dateStr, group.id);
-        const groupDone = groupTasks.filter((task) => doneToday.has(task.id)).length;
-        const bonus = bonusesToday.get(group.id);
-
         return (
           <View key={group.id} className="mb-6">
-            <View className="mb-2 flex-row items-baseline justify-between px-4">
-              <Text className="text-[13px] text-one-muted dark:text-one-muted-dark">{group.name}</Text>
-              <Text className="text-[13px] text-one-muted dark:text-one-muted-dark">
-                {formatTime(group.due_time)} · {groupDone}/{groupTasks.length}
-              </Text>
-            </View>
+            {todayGroups.length > 1 ? (
+              <SectionLabel>{`${group.name} · ${formatTime(group.due_time)}`}</SectionLabel>
+            ) : null}
             {groupTasks.length === 0 ? (
               <Text className="px-4 text-[14px] text-one-muted dark:text-one-muted-dark">
                 No tasks in this routine yet.
@@ -112,15 +163,6 @@ export default function TodayScreen() {
                 ))}
               </GroupedList>
             )}
-            {groupTasks.length > 0 ? (
-              bonus ? (
-                <Text className="mt-2 px-4 text-[13px] text-one-success">On-time bonus +{bonus.points}</Text>
-              ) : (
-                <Text className="mt-2 px-4 text-[13px] text-one-muted dark:text-one-muted-dark">
-                  +{group.bonus_points} if everything is done by {formatTime(group.due_time)}
-                </Text>
-              )
-            ) : null}
           </View>
         );
       })}
@@ -149,10 +191,18 @@ export default function TodayScreen() {
   );
 }
 
-function GlanceCard({ label, value }: { label: string; value: number }) {
+function GlanceCard({ label, value, coins }: { label: string; value: number; coins?: boolean }) {
   return (
     <View className="flex-1 items-center rounded-[26px] bg-one-surface px-2 py-3.5 dark:bg-one-surface-dark">
-      <Text className="text-[22px] font-medium tabular-nums text-one-fg dark:text-one-fg-dark">{value}</Text>
+      {coins ? (
+        <CoinAmount
+          value={value}
+          size={18}
+          textClassName="text-[22px] font-medium tabular-nums text-[#C47E0A] dark:text-[#FFD24A]"
+        />
+      ) : (
+        <Text className="text-[22px] font-medium tabular-nums text-one-fg dark:text-one-fg-dark">{value}</Text>
+      )}
       <Text className="mt-0.5 text-[12px] text-one-muted dark:text-one-muted-dark">{label}</Text>
     </View>
   );

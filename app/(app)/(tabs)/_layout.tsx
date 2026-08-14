@@ -53,19 +53,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="score"
-        options={{
-          title: 'Score',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{ ios: 'star', android: 'star', web: 'star' }}
-              tintColor={color}
-              size={24}
-            />
-          ),
-        }}
-      />
     </Tabs>
   );
 }

@@ -11,6 +11,7 @@ export type Group = {
   due_time: string;
   days_of_week: number[];
   bonus_points: number;
+  color: string;
   sort_order: number;
   archived: boolean;
   created_at: string;
@@ -51,6 +52,7 @@ export type GroupInsert = {
   due_time: string;
   days_of_week: number[];
   bonus_points: number;
+  color: string;
   sort_order?: number;
 };
 

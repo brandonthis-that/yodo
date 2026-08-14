@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button } from '@/src/components/Button';
+import { ColorField } from '@/src/components/ColorField';
 import { DayPicker } from '@/src/components/DayPicker';
 import { Field } from '@/src/components/Field';
 import { GroupedList } from '@/src/components/GroupedList';
@@ -8,6 +9,7 @@ import { ListRow } from '@/src/components/ListRow';
 import { TimeField } from '@/src/components/TimeField';
 import { WEEKDAYS_ONLY, toTimeString } from '@/src/lib/dates';
 import type { GroupInsert } from '@/src/lib/types';
+import { groupColors } from '@/src/theme';
 
 type Props = {
   initial?: Partial<GroupInsert>;
@@ -21,6 +23,7 @@ export function GroupForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
   const [dueTime, setDueTime] = useState(initial?.due_time ?? toTimeString(8, 0));
   const [days, setDays] = useState<number[]>(initial?.days_of_week ?? WEEKDAYS_ONLY);
   const [bonus, setBonus] = useState(String(initial?.bonus_points ?? 5));
+  const [color, setColor] = useState(initial?.color ?? groupColors[0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +34,7 @@ export function GroupForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
         <TimeField label="Due by" value={dueTime} onChange={setDueTime} />
         <DayPicker value={days} onChange={setDays} />
         <Field label="On-time bonus" value={bonus} onChangeText={setBonus} keyboardType="number-pad" />
+        <ColorField value={color} onChange={setColor} />
       </GroupedList>
       {error ? <Text className="px-4 text-[14px] text-one-danger">{error}</Text> : null}
       <Button
@@ -46,6 +50,7 @@ export function GroupForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
               due_time: dueTime,
               days_of_week: days,
               bonus_points: Math.max(0, Number(bonus) || 0),
+              color,
             });
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not save');

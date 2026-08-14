@@ -1,5 +1,6 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
+import { CoinAmount } from '@/src/components/CoinIcon';
 import { GroupForm } from '@/src/components/GroupForm';
 import { GroupedList } from '@/src/components/GroupedList';
 import { ListRow } from '@/src/components/ListRow';
@@ -58,9 +59,16 @@ export default function GroupScreen() {
               <Link key={task.id} href={`/task/${task.id}`} asChild>
                 <ListRow
                   title={task.title}
-                  value={`+${task.points}${
-                    task.reminder_minutes_before != null ? ` · ${task.reminder_minutes_before}m` : ''
-                  }`}
+                  value={
+                    <View className="flex-row items-center gap-2">
+                      <CoinAmount value={task.points} signed size={16} />
+                      {task.reminder_minutes_before != null ? (
+                        <Text className="text-[15px] text-one-muted dark:text-one-muted-dark">
+                          · {task.reminder_minutes_before}m
+                        </Text>
+                      ) : null}
+                    </View>
+                  }
                 />
               </Link>
             ))}

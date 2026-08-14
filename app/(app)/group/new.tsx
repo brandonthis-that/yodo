@@ -4,6 +4,7 @@ import { GroupForm } from '@/src/components/GroupForm';
 import { useAuth } from '@/src/context/AuthContext';
 import { useYodoContext } from '@/src/context/YodoContext';
 import { createGroup } from '@/src/lib/api';
+import { nextGroupColor } from '@/src/theme';
 
 export default function NewGroupScreen() {
   const { session } = useAuth();
@@ -12,6 +13,7 @@ export default function NewGroupScreen() {
   return (
     <Screen safe={false}>
       <GroupForm
+        initial={{ color: nextGroupColor(groups.map((group) => group.color)) }}
         submitLabel="Create routine"
         onSubmit={async (input) => {
           if (!session) return;
