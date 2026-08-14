@@ -18,6 +18,7 @@ create table public.groups (
   due_time time not null,
   days_of_week int[] not null default '{1,2,3,4,5}',
   bonus_points int not null default 5,
+  color text not null default '#0381FE',
   sort_order int not null default 0,
   archived boolean not null default false,
   created_at timestamptz not null default now()

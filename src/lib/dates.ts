@@ -25,6 +25,40 @@ export function parseTime(value: string): { hours: number; minutes: number } {
   return { hours: Number(h) || 0, minutes: Number(m) || 0 };
 }
 
+/** Parse a typed time such as `9:30`, `0930`, or `9`. */
+export function parseTimeInput(raw: string): { hours: number; minutes: number } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const colon = trimmed.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    const hours = Number(colon[1]);
+    const minutes = Number(colon[2]);
+    if (hours > 23 || minutes > 59) return null;
+    return { hours, minutes };
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 1 || digits.length === 2) {
+    const hours = Number(digits);
+    if (hours > 23) return null;
+    return { hours, minutes: 0 };
+  }
+  if (digits.length === 3) {
+    const hours = Number(digits[0]);
+    const minutes = Number(digits.slice(1));
+    if (minutes > 59) return null;
+    return { hours, minutes };
+  }
+  if (digits.length === 4) {
+    const hours = Number(digits.slice(0, 2));
+    const minutes = Number(digits.slice(2));
+    if (hours > 23 || minutes > 59) return null;
+    return { hours, minutes };
+  }
+  return null;
+}
+
 export function formatTime(value: string): string {
   const { hours, minutes } = parseTime(value);
   return `${pad2(hours)}:${pad2(minutes)}`;

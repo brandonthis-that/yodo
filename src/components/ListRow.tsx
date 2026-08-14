@@ -4,7 +4,7 @@ import { Pressable, Text, View, type PressableProps } from 'react-native';
 type Props = Omit<PressableProps, 'children'> & {
   title: string;
   subtitle?: string;
-  value?: string;
+  value?: ReactNode;
   leading?: ReactNode;
   showChevron?: boolean;
   destructive?: boolean;
@@ -42,9 +42,11 @@ export const ListRow = forwardRef<View, Props>(function ListRow(
           </Text>
         ) : null}
       </View>
-      {value ? (
+      {value == null || value === '' ? null : typeof value === 'string' || typeof value === 'number' ? (
         <Text className="ml-2 text-[15px] text-one-muted dark:text-one-muted-dark">{value}</Text>
-      ) : null}
+      ) : (
+        <View className="ml-2">{value}</View>
+      )}
       {showChevron && !destructive ? (
         <Text className="ml-1 text-[22px] leading-6 text-one-muted/40 dark:text-one-muted-dark/40">›</Text>
       ) : null}

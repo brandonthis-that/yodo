@@ -1,23 +1,34 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button } from '@/src/components/Button';
+import { ColorField } from '@/src/components/ColorField';
 import { DayPicker } from '@/src/components/DayPicker';
 import { Field } from '@/src/components/Field';
 import { GroupedList } from '@/src/components/GroupedList';
 import { ListRow } from '@/src/components/ListRow';
+import { SectionLabel } from '@/src/components/SectionLabel';
 import { TimeField } from '@/src/components/TimeField';
-import { ALL_DAYS, toTimeString } from '@/src/lib/dates';
-import type { TaskInsert } from '@/src/lib/types';
+import { ALL_DAYS, WEEKDAYS_ONLY, formatTime, toTimeString } from '@/src/lib/dates';
+import type { Group, GroupInsert, TaskInsert } from '@/src/lib/types';
+import { nextGroupColor } from '@/src/theme';
+
+type RoutineChoice = 'new' | 'none' | string;
 
 type Props = {
-  grouped: boolean;
+  groups: Group[];
   initial?: Partial<TaskInsert>;
   submitLabel: string;
-  onSubmit: (input: TaskInsert) => Promise<void>;
+  onSubmit: (input: TaskInsert, newGroup?: GroupInsert) => Promise<void>;
   onDelete?: () => Promise<void>;
 };
 
-export function TaskForm({ grouped, initial, submitLabel, onSubmit, onDelete }: Props) {
+function defaultRoutine(initial?: Partial<TaskInsert>): RoutineChoice {
+  if (initial?.group_id) return initial.group_id;
+  if (initial) return 'none';
+  return 'new';
+}
+
+export function TaskForm({ groups, initial, submitLabel, onSubmit, onDelete }: Props) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [points, setPoints] = useState(String(initial?.points ?? 1));
   const [reminder, setReminder] = useState(
@@ -25,15 +36,81 @@ export function TaskForm({ grouped, initial, submitLabel, onSubmit, onDelete }: 
   );
   const [dueTime, setDueTime] = useState(initial?.due_time ?? toTimeString(9, 0));
   const [days, setDays] = useState<number[]>(initial?.days_of_week ?? ALL_DAYS);
+  const [routine, setRoutine] = useState<RoutineChoice>(() => defaultRoutine(initial));
+  const [routineName, setRoutineName] = useState('');
+  const [routineDueTime, setRoutineDueTime] = useState(toTimeString(8, 0));
+  const [routineDays, setRoutineDays] = useState<number[]>(WEEKDAYS_ONLY);
+  const [routineColor, setRoutineColor] = useState(nextGroupColor(groups.map((group) => group.color)));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const creatingRoutine = routine === 'new';
+  const grouped = routine !== 'none';
 
   return (
     <View className="gap-4">
       <GroupedList>
         <Field label="Task" value={title} onChangeText={setTitle} placeholder="Make the bed" autoFocus />
         <Field label="Points" value={points} onChangeText={setPoints} keyboardType="number-pad" />
-        {grouped ? (
+        {grouped ? null : (
+          <>
+            <TimeField label="Due at" value={dueTime} onChange={setDueTime} />
+            <DayPicker value={days} onChange={setDays} />
+          </>
+        )}
+      </GroupedList>
+
+      <View>
+        <SectionLabel>Add to a routine?</SectionLabel>
+        <GroupedList>
+          <ListRow
+            title="New routine"
+            subtitle="This task starts a group with a shared due time"
+            showChevron={false}
+            leading={<Radio selected={creatingRoutine} />}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: creatingRoutine }}
+            onPress={() => setRoutine('new')}
+          />
+          {groups.map((group) => (
+            <ListRow
+              key={group.id}
+              title={group.name}
+              subtitle={`Due ${formatTime(group.due_time)}`}
+              showChevron={false}
+              leading={<Radio selected={routine === group.id} />}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: routine === group.id }}
+              onPress={() => setRoutine(group.id)}
+            />
+          ))}
+          <ListRow
+            title="No, standalone"
+            subtitle="This task has its own due time"
+            showChevron={false}
+            leading={<Radio selected={routine === 'none'} />}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: routine === 'none' }}
+            onPress={() => setRoutine('none')}
+          />
+        </GroupedList>
+      </View>
+
+      {creatingRoutine ? (
+        <GroupedList>
+          <Field
+            label="Routine name"
+            value={routineName}
+            onChangeText={setRoutineName}
+            placeholder="Morning"
+          />
+          <TimeField label="Due by" value={routineDueTime} onChange={setRoutineDueTime} />
+          <DayPicker value={routineDays} onChange={setRoutineDays} />
+          <ColorField value={routineColor} onChange={setRoutineColor} />
+        </GroupedList>
+      ) : null}
+
+      {grouped ? (
+        <GroupedList>
           <Field
             label="Remind me (minutes before due)"
             value={reminder}
@@ -41,30 +118,38 @@ export function TaskForm({ grouped, initial, submitLabel, onSubmit, onDelete }: 
             keyboardType="number-pad"
             placeholder="Optional, e.g. 15"
           />
-        ) : (
-          <>
-            <TimeField label="Due at" value={dueTime} onChange={setDueTime} />
-            <DayPicker value={days} onChange={setDays} />
-          </>
-        )}
-      </GroupedList>
+        </GroupedList>
+      ) : null}
+
       {error ? <Text className="px-4 text-[14px] text-one-danger">{error}</Text> : null}
       <Button
         label={submitLabel}
         loading={saving}
-        disabled={!title.trim()}
+        disabled={!title.trim() || (creatingRoutine && !routineName.trim())}
         onPress={async () => {
           setSaving(true);
           setError(null);
           try {
             const reminderValue = reminder.trim() === '' ? null : Math.max(0, Number(reminder) || 0);
-            await onSubmit({
-              title: title.trim(),
-              points: Math.max(0, Number(points) || 0),
-              reminder_minutes_before: grouped ? reminderValue : null,
-              due_time: grouped ? null : dueTime,
-              days_of_week: grouped ? ALL_DAYS : days,
-            });
+            await onSubmit(
+              {
+                title: title.trim(),
+                points: Math.max(0, Number(points) || 0),
+                group_id: creatingRoutine || routine === 'none' ? null : routine,
+                reminder_minutes_before: grouped ? reminderValue : null,
+                due_time: grouped ? null : dueTime,
+                days_of_week: grouped ? ALL_DAYS : days,
+              },
+              creatingRoutine
+                ? {
+                    name: routineName.trim(),
+                    due_time: routineDueTime,
+                    days_of_week: routineDays,
+                    bonus_points: 5,
+                    color: routineColor,
+                  }
+                : undefined,
+            );
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not save');
           } finally {
@@ -92,5 +177,17 @@ export function TaskForm({ grouped, initial, submitLabel, onSubmit, onDelete }: 
         </GroupedList>
       ) : null}
     </View>
+  );
+}
+
+function Radio({ selected }: { selected: boolean }) {
+  return (
+    <View
+      className={`mr-3 h-6 w-6 rounded-full ${
+        selected
+          ? 'border-[7px] border-one-blue'
+          : 'border-[1.5px] border-[#C8C8C8] dark:border-[#6A6A6A]'
+      }`}
+    />
   );
 }

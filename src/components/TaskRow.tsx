@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import { CoinAmount } from '@/src/components/CoinIcon';
 
 type Props = {
   checked: boolean;
@@ -34,7 +35,9 @@ export function TaskRow({ checked, title, points, subtitle, onToggle }: Props) {
         </Text>
         {subtitle ? <Text className="mt-0.5 text-[13px] text-one-muted dark:text-one-muted-dark">{subtitle}</Text> : null}
       </View>
-      <Text className="text-[15px] tabular-nums text-one-muted dark:text-one-muted-dark">+{points}</Text>
+      <View className={checked ? 'opacity-45' : undefined}>
+        <CoinAmount value={points} signed size={16} />
+      </View>
     </Pressable>
   );
 }
