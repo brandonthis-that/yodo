@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  font-family: Roboto, 'Noto Sans', system-ui, sans-serif;
+  background-color: #f6f6f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body,
+  #root {
+    background-color: #010101;
+  }
+}
