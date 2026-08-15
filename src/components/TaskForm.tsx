@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button } from '@/src/components/Button';
+import { CoinIcon } from '@/src/components/CoinIcon';
 import { ColorField } from '@/src/components/ColorField';
 import { DayPicker } from '@/src/components/DayPicker';
 import { Field } from '@/src/components/Field';
 import { GroupedList } from '@/src/components/GroupedList';
 import { ListRow } from '@/src/components/ListRow';
-import { SectionLabel } from '@/src/components/SectionLabel';
 import { TimeField } from '@/src/components/TimeField';
 import { ALL_DAYS, WEEKDAYS_ONLY, formatTime, toTimeString } from '@/src/lib/dates';
 import type { Group, GroupInsert, TaskInsert } from '@/src/lib/types';
@@ -24,8 +24,13 @@ type Props = {
 
 function defaultRoutine(initial?: Partial<TaskInsert>): RoutineChoice {
   if (initial?.group_id) return initial.group_id;
-  if (initial) return 'none';
-  return 'new';
+  return 'none';
+}
+
+function routineSummary(routine: RoutineChoice, groups: Group[], routineName: string): string {
+  if (routine === 'none') return 'Optional. Group this with a shared due time';
+  if (routine === 'new') return routineName.trim() || 'New routine';
+  return groups.find((group) => group.id === routine)?.name ?? 'Routine';
 }
 
 export function TaskForm({ groups, initial, submitLabel, onSubmit, onDelete }: Props) {
@@ -37,6 +42,7 @@ export function TaskForm({ groups, initial, submitLabel, onSubmit, onDelete }: P
   const [dueTime, setDueTime] = useState(initial?.due_time ?? toTimeString(9, 0));
   const [days, setDays] = useState<number[]>(initial?.days_of_week ?? ALL_DAYS);
   const [routine, setRoutine] = useState<RoutineChoice>(() => defaultRoutine(initial));
+  const [routineOpen, setRoutineOpen] = useState(() => Boolean(initial?.group_id));
   const [routineName, setRoutineName] = useState('');
   const [routineDueTime, setRoutineDueTime] = useState(toTimeString(8, 0));
   const [routineDays, setRoutineDays] = useState<number[]>(WEEKDAYS_ONLY);
@@ -50,7 +56,13 @@ export function TaskForm({ groups, initial, submitLabel, onSubmit, onDelete }: P
     <View className="gap-4">
       <GroupedList>
         <Field label="Task" value={title} onChangeText={setTitle} placeholder="Make the bed" autoFocus />
-        <Field label="Points" value={points} onChangeText={setPoints} keyboardType="number-pad" />
+        <Field
+          label="Points"
+          value={points}
+          onChangeText={setPoints}
+          keyboardType="number-pad"
+          prefix={<CoinIcon size={18} />}
+        />
         {grouped ? null : (
           <>
             <TimeField label="Due at" value={dueTime} onChange={setDueTime} />
@@ -59,41 +71,56 @@ export function TaskForm({ groups, initial, submitLabel, onSubmit, onDelete }: P
         )}
       </GroupedList>
 
-      <View>
-        <SectionLabel>Add to a routine?</SectionLabel>
-        <GroupedList>
-          <ListRow
-            title="New routine"
-            subtitle="This task starts a group with a shared due time"
-            showChevron={false}
-            leading={<Radio selected={creatingRoutine} />}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: creatingRoutine }}
-            onPress={() => setRoutine('new')}
-          />
-          {groups.map((group) => (
+      <GroupedList>
+        <ListRow
+          title="Add to a routine"
+          subtitle={routineSummary(routine, groups, routineName)}
+          showChevron={false}
+          value={
+            <Text className="text-[18px] leading-5 text-one-muted/50 dark:text-one-muted-dark/50">
+              {routineOpen ? '⌃' : '›'}
+            </Text>
+          }
+          accessibilityRole="button"
+          accessibilityState={{ expanded: routineOpen }}
+          accessibilityHint={routineOpen ? 'Collapse routine options' : 'Show routine options'}
+          onPress={() => setRoutineOpen((open) => !open)}
+        />
+        {routineOpen ? (
+          <>
             <ListRow
-              key={group.id}
-              title={group.name}
-              subtitle={`Due ${formatTime(group.due_time)}`}
+              title="New routine"
+              subtitle="This task starts a group with a shared due time"
               showChevron={false}
-              leading={<Radio selected={routine === group.id} />}
+              leading={<Radio selected={creatingRoutine} />}
               accessibilityRole="radio"
-              accessibilityState={{ selected: routine === group.id }}
-              onPress={() => setRoutine(group.id)}
+              accessibilityState={{ selected: creatingRoutine }}
+              onPress={() => setRoutine('new')}
             />
-          ))}
-          <ListRow
-            title="No, standalone"
-            subtitle="This task has its own due time"
-            showChevron={false}
-            leading={<Radio selected={routine === 'none'} />}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: routine === 'none' }}
-            onPress={() => setRoutine('none')}
-          />
-        </GroupedList>
-      </View>
+            {groups.map((group) => (
+              <ListRow
+                key={group.id}
+                title={group.name}
+                subtitle={`Due ${formatTime(group.due_time)}`}
+                showChevron={false}
+                leading={<Radio selected={routine === group.id} />}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: routine === group.id }}
+                onPress={() => setRoutine(group.id)}
+              />
+            ))}
+            <ListRow
+              title="No, standalone"
+              subtitle="This task has its own due time"
+              showChevron={false}
+              leading={<Radio selected={routine === 'none'} />}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: routine === 'none' }}
+              onPress={() => setRoutine('none')}
+            />
+          </>
+        ) : null}
+      </GroupedList>
 
       {creatingRoutine ? (
         <GroupedList>
