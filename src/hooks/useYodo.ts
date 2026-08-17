@@ -5,10 +5,13 @@ import { deviceTimezone, todayDate } from '@/src/lib/dates';
 import {
   fetchBonuses,
   fetchCompletions,
+  fetchForgets,
   fetchGroups,
   fetchProfile,
   fetchTasks,
+  markForgotten,
   toggleTaskCompletion,
+  unmarkForgotten,
   upsertProfileTimezone,
 } from '@/src/lib/api';
 import {
@@ -28,13 +31,15 @@ import {
   requestReminderPermission,
   syncReminders,
 } from '@/src/lib/notifications';
+import { forgetMap } from '@/src/lib/forgets';
 import type { ReminderPermissionState } from '@/src/lib/reminders';
-import type { Completion, Group, GroupBonus, Task } from '@/src/lib/types';
+import type { Completion, Forget, Group, GroupBonus, Task } from '@/src/lib/types';
 
 export function useYodo(userId: string | undefined) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completions, setCompletions] = useState<Completion[]>([]);
+  const [forgets, setForgets] = useState<Forget[]>([]);
   const [bonuses, setBonuses] = useState<GroupBonus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +50,18 @@ export function useYodo(userId: string | undefined) {
   const reload = useCallback(async () => {
     if (!userId) return;
     setError(null);
-    const [nextGroups, nextTasks, nextCompletions, nextBonuses] = await Promise.all([
+    const [nextGroups, nextTasks, nextCompletions, nextBonuses, nextForgets] = await Promise.all([
       fetchGroups(userId),
       fetchTasks(userId),
       fetchCompletions(userId),
       fetchBonuses(userId),
+      fetchForgets(userId),
     ]);
     setGroups(nextGroups);
     setTasks(nextTasks);
     setCompletions(nextCompletions);
     setBonuses(nextBonuses);
+    setForgets(nextForgets);
   }, [userId]);
 
   useEffect(() => {
@@ -103,6 +110,9 @@ export function useYodo(userId: string | undefined) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_bonuses' }, () => {
         void reload();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forgets' }, () => {
+        void reload();
+      })
       .subscribe();
 
     return () => {
@@ -111,22 +121,27 @@ export function useYodo(userId: string | undefined) {
   }, [reload, userId]);
 
   const doneToday = useMemo(() => completionMap(completions, dateStr), [completions, dateStr]);
+  const forgottenToday = useMemo(() => forgetMap(forgets, dateStr), [dateStr, forgets]);
   const bonusesToday = useMemo(() => bonusMap(bonuses, dateStr), [bonuses, dateStr]);
   const todayGroups = useMemo(() => groupsDueOn(groups, dateStr), [groups, dateStr]);
   const standaloneToday = useMemo(() => tasksDueOn(tasks, dateStr, null), [tasks, dateStr]);
+  const clearedToday = useMemo(
+    () => new Set([...doneToday.keys(), ...forgottenToday.keys()]),
+    [doneToday, forgottenToday],
+  );
 
   const pushReminders = useCallback(async () => {
     try {
       await syncReminders({
         groups,
         tasks,
-        completedIds: new Set(doneToday.keys()),
+        completedIds: clearedToday,
         dateStr,
       });
     } catch {
       // Scheduling must never break the checklist.
     }
-  }, [dateStr, doneToday, groups, tasks]);
+  }, [clearedToday, dateStr, groups, tasks]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
@@ -196,6 +211,11 @@ export function useYodo(userId: string | undefined) {
           },
         ];
       });
+      if (!completed) {
+        setForgets((current) =>
+          current.filter((item) => !(item.task_id === task.id && item.forgotten_on === dateStr)),
+        );
+      }
       if (completed && task.group_id) {
         setBonuses((current) =>
           current.filter((item) => !(item.group_id === task.group_id && item.earned_on === dateStr)),
@@ -220,6 +240,47 @@ export function useYodo(userId: string | undefined) {
     [completions, dateStr, doneToday, groups, reload, tasks, userId],
   );
 
+  const forget = useCallback(
+    async (task: Task) => {
+      if (!userId || doneToday.has(task.id) || forgottenToday.has(task.id)) return;
+      setForgets((current) => [
+        ...current,
+        {
+          id: `local-${task.id}`,
+          user_id: userId,
+          task_id: task.id,
+          forgotten_on: dateStr,
+          forgotten_at: new Date().toISOString(),
+        },
+      ]);
+      try {
+        await markForgotten(userId, task.id, dateStr);
+        await reload();
+      } catch (err) {
+        await reload();
+        throw err;
+      }
+    },
+    [dateStr, doneToday, forgottenToday, reload, userId],
+  );
+
+  const unforget = useCallback(
+    async (task: Task) => {
+      if (!userId || !forgottenToday.has(task.id)) return;
+      setForgets((current) =>
+        current.filter((item) => !(item.task_id === task.id && item.forgotten_on === dateStr)),
+      );
+      try {
+        await unmarkForgotten(task.id, dateStr);
+        await reload();
+      } catch (err) {
+        await reload();
+        throw err;
+      }
+    },
+    [dateStr, forgottenToday, reload, userId],
+  );
+
   const todayPoints = taskPointsOn(tasks, completions, dateStr) + bonusPointsOn(bonuses, dateStr);
   const allTimePoints = totalPoints(tasks, completions, bonuses);
   const streak = computeStreak(groups, bonuses);
@@ -231,10 +292,12 @@ export function useYodo(userId: string | undefined) {
     groups,
     tasks,
     completions,
+    forgets,
     bonuses,
     todayGroups,
     standaloneToday,
     doneToday,
+    forgottenToday,
     bonusesToday,
     todayPoints,
     allTimePoints,
@@ -242,6 +305,8 @@ export function useYodo(userId: string | undefined) {
     reminderPermission,
     reload,
     toggle,
+    forget,
+    unforget,
     enableReminders,
   };
 }

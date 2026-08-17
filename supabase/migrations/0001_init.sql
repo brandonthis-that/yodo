@@ -59,17 +59,28 @@ create table public.group_bonuses (
   unique (group_id, earned_on)
 );
 
+create table public.forgets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  task_id uuid not null references public.tasks (id) on delete cascade,
+  forgotten_on date not null,
+  forgotten_at timestamptz not null default now(),
+  unique (task_id, forgotten_on)
+);
+
 create index groups_user_id_idx on public.groups (user_id);
 create index tasks_user_id_idx on public.tasks (user_id);
 create index tasks_group_id_idx on public.tasks (group_id);
 create index completions_user_on_idx on public.completions (user_id, completed_on);
 create index group_bonuses_user_on_idx on public.group_bonuses (user_id, earned_on);
+create index forgets_user_on_idx on public.forgets (user_id, forgotten_on);
 
 alter table public.profiles enable row level security;
 alter table public.groups enable row level security;
 alter table public.tasks enable row level security;
 alter table public.completions enable row level security;
 alter table public.group_bonuses enable row level security;
+alter table public.forgets enable row level security;
 
 create policy "profiles are own" on public.profiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
@@ -84,6 +95,9 @@ create policy "completions are own" on public.completions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "group_bonuses are own" on public.group_bonuses
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "forgets are own" on public.forgets
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create or replace function public.handle_new_user()
@@ -108,3 +122,4 @@ alter publication supabase_realtime add table public.groups;
 alter publication supabase_realtime add table public.tasks;
 alter publication supabase_realtime add table public.completions;
 alter publication supabase_realtime add table public.group_bonuses;
+alter publication supabase_realtime add table public.forgets;

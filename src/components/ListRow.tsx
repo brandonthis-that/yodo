@@ -5,6 +5,7 @@ type Props = Omit<PressableProps, 'children'> & {
   title: string;
   subtitle?: string;
   value?: ReactNode;
+  trailingAction?: ReactNode;
   leading?: ReactNode;
   showChevron?: boolean;
   destructive?: boolean;
@@ -12,17 +13,29 @@ type Props = Omit<PressableProps, 'children'> & {
 };
 
 export const ListRow = forwardRef<View, Props>(function ListRow(
-  { title, subtitle, value, onPress, leading, showChevron = true, destructive, center, className, ...rest },
+  {
+    title,
+    subtitle,
+    value,
+    trailingAction,
+    onPress,
+    leading,
+    showChevron = true,
+    destructive,
+    center,
+    className,
+    ...rest
+  },
   ref,
 ) {
-  return (
+  const row = (
     <Pressable
-      ref={ref}
+      ref={trailingAction ? undefined : ref}
       {...rest}
       onPress={onPress}
       className={`flex-row items-center px-4 py-[14px] active:bg-black/5 dark:active:bg-white/10 ${
         center ? 'justify-center' : ''
-      } ${className ?? ''}`}
+      } ${trailingAction ? 'min-w-0 flex-1' : ''} ${className ?? ''}`}
     >
       {leading}
       <View className={center ? '' : 'min-w-0 flex-1'}>
@@ -51,5 +64,14 @@ export const ListRow = forwardRef<View, Props>(function ListRow(
         <Text className="ml-1 text-[22px] leading-6 text-one-muted/40 dark:text-one-muted-dark/40">›</Text>
       ) : null}
     </Pressable>
+  );
+
+  if (!trailingAction) return row;
+
+  return (
+    <View ref={ref} className="flex-row items-center">
+      {row}
+      <View className="pr-4">{trailingAction}</View>
+    </View>
   );
 });

@@ -44,6 +44,8 @@ In Supabase, open **SQL Editor**, paste the contents of [`supabase/migrations/00
 
 That creates tables, row-level security (so users only see their own rows), a profile on signup, and realtime.
 
+If this project already has a database from an earlier version, also run [`0003_forgets.sql`](supabase/migrations/0003_forgets.sql).
+
 Optional, if you already use the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
 ```bash

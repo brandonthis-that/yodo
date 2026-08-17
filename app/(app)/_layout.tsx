@@ -33,6 +33,7 @@ export default function AppLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ title: 'You' }} />
+        <Stack.Screen name="forgotten" options={{ title: 'Forgotten' }} />
         <Stack.Screen name="group/new" options={{ title: 'New routine' }} />
         <Stack.Screen name="group/[id]" options={{ title: 'Routine' }} />
         <Stack.Screen name="task/new" options={{ title: 'New task' }} />

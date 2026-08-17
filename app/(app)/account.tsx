@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { accountInitial } from '@/src/components/AccountButton';
 import { CoinIcon } from '@/src/components/CoinIcon';
@@ -9,12 +10,14 @@ import { Screen } from '@/src/components/Screen';
 import { useAuth } from '@/src/context/AuthContext';
 import { useYodoContext } from '@/src/context/YodoContext';
 import { showError } from '@/src/lib/confirm';
+import { groupForgets } from '@/src/lib/forgets';
 
 export default function AccountScreen() {
   const { session, signOut } = useAuth();
-  const { loading, todayPoints, allTimePoints, streak } = useYodoContext();
+  const { loading, todayPoints, allTimePoints, streak, forgets, tasks, dateStr } = useYodoContext();
   const email = session?.user.email ?? '';
   const initial = accountInitial(email);
+  const forgottenCount = groupForgets(forgets, tasks, dateStr).length;
 
   return (
     <Screen loading={loading} safe={false}>
@@ -60,6 +63,17 @@ export default function AccountScreen() {
         Coins come from tasks you check off. Finish every task in a routine before its due time to keep the streak and
         collect the bonus.
       </Text>
+
+      <GroupedList>
+        <ListRow
+          title="Forgotten"
+          subtitle={forgottenCount === 0 ? 'Nothing marked yet' : undefined}
+          value={forgottenCount > 0 ? forgottenCount : undefined}
+          onPress={() => router.push('/forgotten')}
+        />
+      </GroupedList>
+
+      <View className="h-4" />
 
       <GroupedList>
         <ListRow

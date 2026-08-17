@@ -1,4 +1,4 @@
-import type { Group, GroupBonus, GroupInsert, Profile, Task, TaskInsert, Completion } from '@/src/lib/types';
+import type { Forget, Group, GroupBonus, GroupInsert, Profile, Task, TaskInsert, Completion } from '@/src/lib/types';
 import { supabase } from '@/src/lib/supabase';
 import { groupCompleteOnTime } from '@/src/lib/points';
 
@@ -46,6 +46,25 @@ export async function fetchBonuses(userId: string): Promise<GroupBonus[]> {
   const { data, error } = await supabase.from('group_bonuses').select('*').eq('user_id', userId);
   if (error) throw error;
   return (data ?? []) as GroupBonus[];
+}
+
+export async function fetchForgets(userId: string): Promise<Forget[]> {
+  const { data, error } = await supabase.from('forgets').select('*').eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []) as Forget[];
+}
+
+export async function markForgotten(userId: string, taskId: string, dateStr: string): Promise<void> {
+  const { error } = await supabase.from('forgets').upsert(
+    { user_id: userId, task_id: taskId, forgotten_on: dateStr },
+    { onConflict: 'task_id,forgotten_on' },
+  );
+  if (error) throw error;
+}
+
+export async function unmarkForgotten(taskId: string, dateStr: string): Promise<void> {
+  const { error } = await supabase.from('forgets').delete().eq('task_id', taskId).eq('forgotten_on', dateStr);
+  if (error) throw error;
 }
 
 export async function createGroup(userId: string, input: GroupInsert): Promise<Group> {
@@ -119,6 +138,13 @@ export async function toggleTaskCompletion(params: {
     completed_on: dateStr,
   });
   if (error) throw error;
+
+  const { error: forgetError } = await supabase
+    .from('forgets')
+    .delete()
+    .eq('task_id', task.id)
+    .eq('forgotten_on', dateStr);
+  if (forgetError) throw forgetError;
 
   if (!task.group_id) return;
 

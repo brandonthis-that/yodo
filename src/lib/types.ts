@@ -39,6 +39,14 @@ export type Completion = {
   completed_at: string;
 };
 
+export type Forget = {
+  id: string;
+  user_id: string;
+  task_id: string;
+  forgotten_on: string;
+  forgotten_at: string;
+};
+
 export type GroupBonus = {
   id: string;
   user_id: string;
