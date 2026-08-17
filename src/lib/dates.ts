@@ -74,6 +74,19 @@ export function dueDateOn(dateStr: string, time: string): Date {
   return new Date(year, month - 1, day, hours, minutes, 0, 0);
 }
 
+export function isPastDue(dateStr: string, time: string, now = new Date()): boolean {
+  return now.getTime() > dueDateOn(dateStr, time).getTime();
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+/** `Thu 14 Aug` — archive and “last forgotten” labels. */
+export function formatShortDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return `${weekdayLabel(date.getDay())} ${day} ${MONTHS[month - 1]}`;
+}
+
 export function addDays(dateStr: string, days: number): string {
   const [year, month, day] = dateStr.split('-').map(Number);
   const d = new Date(year, month - 1, day);
