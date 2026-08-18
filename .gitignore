@@ -34,7 +34,7 @@ yarn-error.*
 
 # editor / agent
 .cursor/
-
+.idea/
 # typescript
 *.tsbuildinfo
 
